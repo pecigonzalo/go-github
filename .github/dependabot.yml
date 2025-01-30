@@ -9,10 +9,14 @@ updates:
   schedule:
     interval: weekly
 - package-ecosystem: gomod
-  directory: update-urls
+  directory: tools
   schedule:
     interval: weekly
 - package-ecosystem: github-actions
   directory: /
   schedule:
     interval: weekly
+  groups:
+    actions:
+      patterns:
+      - "actions/*"

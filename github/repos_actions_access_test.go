@@ -16,8 +16,8 @@ import (
 )
 
 func TestRepositoriesService_GetActionsAccessLevel(t *testing.T) {
-	client, mux, _, teardown := setup()
-	defer teardown()
+	t.Parallel()
+	client, mux, _ := setup(t)
 
 	mux.HandleFunc("/repos/o/r/actions/permissions/access", func(w http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "GET")
@@ -29,7 +29,7 @@ func TestRepositoriesService_GetActionsAccessLevel(t *testing.T) {
 	if err != nil {
 		t.Errorf("Repositories.GetActionsAccessLevel returned error: %v", err)
 	}
-	want := &RepositoryActionsAccessLevel{AccessLevel: String("none")}
+	want := &RepositoryActionsAccessLevel{AccessLevel: Ptr("none")}
 	if !cmp.Equal(org, want) {
 		t.Errorf("Repositories.GetActionsAccessLevel returned %+v, want %+v", org, want)
 	}
@@ -50,14 +50,14 @@ func TestRepositoriesService_GetActionsAccessLevel(t *testing.T) {
 }
 
 func TestRepositoriesService_EditActionsAccessLevel(t *testing.T) {
-	client, mux, _, teardown := setup()
-	defer teardown()
+	t.Parallel()
+	client, mux, _ := setup(t)
 
-	input := &RepositoryActionsAccessLevel{AccessLevel: String("organization")}
+	input := &RepositoryActionsAccessLevel{AccessLevel: Ptr("organization")}
 
 	mux.HandleFunc("/repos/o/r/actions/permissions/access", func(w http.ResponseWriter, r *http.Request) {
 		v := new(RepositoryActionsAccessLevel)
-		json.NewDecoder(r.Body).Decode(v)
+		assertNilError(t, json.NewDecoder(r.Body).Decode(v))
 
 		testMethod(t, r, "PUT")
 		if !cmp.Equal(v, input) {
@@ -84,10 +84,11 @@ func TestRepositoriesService_EditActionsAccessLevel(t *testing.T) {
 }
 
 func TestRepositoryActionsAccessLevel_Marshal(t *testing.T) {
+	t.Parallel()
 	testJSONMarshal(t, &ActionsPermissions{}, "{}")
 
 	u := &RepositoryActionsAccessLevel{
-		AccessLevel: String("enterprise"),
+		AccessLevel: Ptr("enterprise"),
 	}
 
 	want := `{

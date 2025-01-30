@@ -12,7 +12,11 @@ import (
 
 // ListSecurityManagerTeams lists all security manager teams for an organization.
 //
-// GitHub API docs: https://docs.github.com/en/rest/orgs/security-managers#list-security-manager-teams
+// Deprecated: Please use `client.Organizations.ListTeamsAssignedToOrgRole` instead.
+//
+// GitHub API docs: https://docs.github.com/rest/orgs/security-managers#list-security-manager-teams
+//
+//meta:operation GET /orgs/{org}/security-managers
 func (s *OrganizationsService) ListSecurityManagerTeams(ctx context.Context, org string) ([]*Team, *Response, error) {
 	u := fmt.Sprintf("orgs/%v/security-managers", org)
 
@@ -32,7 +36,11 @@ func (s *OrganizationsService) ListSecurityManagerTeams(ctx context.Context, org
 
 // AddSecurityManagerTeam adds a team to the list of security managers for an organization.
 //
-// GitHub API docs: https://docs.github.com/en/rest/orgs/security-managers#add-a-security-manager-team
+// Deprecated: Please use `client.Organizations.AssignOrgRoleToTeam` instead.
+//
+// GitHub API docs: https://docs.github.com/rest/orgs/security-managers#add-a-security-manager-team
+//
+//meta:operation PUT /orgs/{org}/security-managers/teams/{team_slug}
 func (s *OrganizationsService) AddSecurityManagerTeam(ctx context.Context, org, team string) (*Response, error) {
 	u := fmt.Sprintf("orgs/%v/security-managers/teams/%v", org, team)
 	req, err := s.client.NewRequest("PUT", u, nil)
@@ -45,7 +53,11 @@ func (s *OrganizationsService) AddSecurityManagerTeam(ctx context.Context, org, 
 
 // RemoveSecurityManagerTeam removes a team from the list of security managers for an organization.
 //
-// GitHub API docs: https://docs.github.com/en/rest/orgs/security-managers#remove-a-security-manager-team
+// Deprecated: Please use `client.Organizations.RemoveOrgRoleFromTeam` instead.
+//
+// GitHub API docs: https://docs.github.com/rest/orgs/security-managers#remove-a-security-manager-team
+//
+//meta:operation DELETE /orgs/{org}/security-managers/teams/{team_slug}
 func (s *OrganizationsService) RemoveSecurityManagerTeam(ctx context.Context, org, team string) (*Response, error) {
 	u := fmt.Sprintf("orgs/%v/security-managers/teams/%v", org, team)
 	req, err := s.client.NewRequest("DELETE", u, nil)

@@ -3,31 +3,17 @@ name: linter
 
 permissions:
   contents: read
-  pull-requests: read
 
 jobs:
   lint:
-    strategy:
-      matrix:
-        go-version: [1.x]
-        platform: [ubuntu-latest]
-
-        # golangci-lint will only process a single module, so we need to call it
-        # separately for each module in the repo.  We dont lint example/newreposecretwithlibsodium
-        # since that needs libsodium to run.
-        working-directory:
-          - ""
-          # - example  # Fails with "no go files to analyze"
-          - scrape
-          - update-urls
-    runs-on: ${{ matrix.platform }}
-
+    runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-
-    - name: golangci-lint ${{ matrix.working-directory }}
-      uses: golangci/golangci-lint-action@v3
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+    - uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5.3.0
       with:
-        version: latest
-        working-directory: ${{ matrix.working-directory}}
-        args: --verbose
+        go-version: 1.x
+        cache-dependency-path: "**/go.sum"
+    - run: script/lint.sh
+      env:
+        CHECK_GITHUB_OPENAPI: 1
+        GITHUB_TOKEN: ${{ github.token }}
