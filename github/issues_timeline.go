@@ -14,7 +14,7 @@ import (
 // Timeline represents an event that occurred around an Issue or Pull Request.
 //
 // It is similar to an IssueEvent but may contain more information.
-// GitHub API docs: https://docs.github.com/en/developers/webhooks-and-events/events/issue-event-types
+// GitHub API docs: https://docs.github.com/developers/webhooks-and-events/events/issue-event-types
 type Timeline struct {
 	ID        *int64  `json:"id,omitempty"`
 	URL       *string `json:"url,omitempty"`
@@ -97,6 +97,14 @@ type Timeline struct {
 	//     reviewed
 	//       The pull request was reviewed.
 	//
+	//     review_requested
+	//       The actor requested a review from a user or team.
+	//       Reviewer and Requester/RequestedTeam will be populated.
+	//
+	//     review_request_removed
+	//       The actor removed a review request from a user or team.
+	//       Reviewer and Requester/RequestedTeam will be populated.
+	//
 	//     subscribed
 	//       The actor subscribed to receive notifications for an issue.
 	//
@@ -134,8 +142,7 @@ type Timeline struct {
 	Source *Source `json:"source,omitempty"`
 	// An object containing rename details including 'from' and 'to' attributes.
 	// Only provided for 'renamed' events.
-	Rename      *Rename      `json:"rename,omitempty"`
-	ProjectCard *ProjectCard `json:"project_card,omitempty"`
+	Rename *Rename `json:"rename,omitempty"`
 	// The state of a submitted review. Can be one of: 'commented',
 	// 'changes_requested' or 'approved'.
 	// Only provided for 'reviewed' events.
@@ -151,6 +158,8 @@ type Timeline struct {
 	// The review summary text.
 	Body        *string    `json:"body,omitempty"`
 	SubmittedAt *Timestamp `json:"submitted_at,omitempty"`
+
+	PerformedViaGithubApp *App `json:"performed_via_github_app,omitempty"`
 }
 
 // Source represents a reference's source.
@@ -164,7 +173,9 @@ type Source struct {
 
 // ListIssueTimeline lists events for the specified issue.
 //
-// GitHub API docs: https://docs.github.com/en/rest/issues/timeline#list-timeline-events-for-an-issue
+// GitHub API docs: https://docs.github.com/rest/issues/timeline#list-timeline-events-for-an-issue
+//
+//meta:operation GET /repos/{owner}/{repo}/issues/{issue_number}/timeline
 func (s *IssuesService) ListIssueTimeline(ctx context.Context, owner, repo string, number int, opts *ListOptions) ([]*Timeline, *Response, error) {
 	u := fmt.Sprintf("repos/%v/%v/issues/%v/timeline", owner, repo, number)
 	u, err := addOptions(u, opts)
