@@ -8,7 +8,7 @@ Package github provides a client for using the GitHub API.
 
 Usage:
 
-	import "github.com/google/go-github/v52/github"	// with go modules enabled (GO111MODULE=on or outside GOPATH)
+	import "github.com/google/go-github/v69/github"	// with go modules enabled (GO111MODULE=on or outside GOPATH)
 	import "github.com/google/go-github/github"     // with go modules disabled
 
 Construct a new GitHub client, then use the various services on the client to
@@ -29,9 +29,9 @@ Some API methods have optional parameters that can be passed. For example:
 
 The services of a client divide the API into logical chunks and correspond to
 the structure of the GitHub API documentation at
-https://docs.github.com/en/rest .
+https://docs.github.com/rest .
 
-NOTE: Using the https://godoc.org/context package, one can easily
+NOTE: Using the https://pkg.go.dev/context package, one can easily
 pass cancelation signals and deadlines to various services of the client for
 handling a request. In case there is no context available, then context.Background()
 can be used as a starting point.
@@ -40,33 +40,15 @@ For more sample code snippets, head over to the https://github.com/google/go-git
 
 # Authentication
 
-The go-github library does not directly handle authentication. Instead, when
-creating a new client, pass an http.Client that can handle authentication for
-you. The easiest and recommended way to do this is using the golang.org/x/oauth2
-library, but you can always use any other library that provides an http.Client.
-If you have an OAuth2 access token (for example, a personal API token), you can
-use it with the oauth2 library using:
+Use Client.WithAuthToken to configure your client to authenticate using an Oauth token
+(for example, a personal access token). This is what is needed for a majority of use cases
+aside from GitHub Apps.
 
-	import "golang.org/x/oauth2"
-
-	func main() {
-		ctx := context.Background()
-		ts := oauth2.StaticTokenSource(
-			&oauth2.Token{AccessToken: "... your access token ..."},
-		)
-		tc := oauth2.NewClient(ctx, ts)
-
-		client := github.NewClient(tc)
-
-		// list all repositories for the authenticated user
-		repos, _, err := client.Repositories.List(ctx, "", nil)
-	}
+	client := github.NewClient(nil).WithAuthToken("... your access token ...")
 
 Note that when using an authenticated Client, all calls made by the client will
 include the specified OAuth token. Therefore, authenticated clients should
 almost never be shared between different users.
-
-See the oauth2 docs for complete instructions on using that library.
 
 For API methods that require HTTP Basic Authentication, use the
 BasicAuthTransport.
@@ -137,7 +119,7 @@ For secondary rate limits, you can check if its type is *github.AbuseRateLimitEr
 	}
 
 Learn more about GitHub rate limiting at
-https://docs.github.com/en/rest/rate-limit .
+https://docs.github.com/rest/rate-limit .
 
 # Accepted Status
 
@@ -156,14 +138,20 @@ To detect this condition of error, you can check if its type is
 
 # Conditional Requests
 
-The GitHub API has good support for conditional requests which will help
-prevent you from burning through your rate limit, as well as help speed up your
-application. go-github does not handle conditional requests directly, but is
-instead designed to work with a caching http.Transport. We recommend using
-https://github.com/gregjones/httpcache for that.
+The GitHub REST API has good support for conditional HTTP requests
+via the ETag header which will help prevent you from burning through your
+rate limit, as well as help speed up your application. go-github does not
+handle conditional requests directly, but is instead designed to work with a
+caching http.Transport.
+
+Typically, an RFC 7234 compliant HTTP cache such as https://github.com/gregjones/httpcache
+is recommended. Alternatively, the https://github.com/bored-engineer/github-conditional-http-transport
+package relies on (undocumented) GitHub specific cache logic and is
+recommended when making requests using short-lived credentials such as a
+GitHub App installation token.
 
 Learn more about GitHub conditional requests at
-https://docs.github.com/en/rest/overview/resources-in-the-rest-api#conditional-requests.
+https://docs.github.com/rest/overview/resources-in-the-rest-api#conditional-requests.
 
 # Creating and Updating Resources
 
@@ -174,8 +162,8 @@ bool, and int values. For example:
 
 	// create a new private repository named "foo"
 	repo := &github.Repository{
-		Name:    github.String("foo"),
-		Private: github.Bool(true),
+		Name:    github.Ptr("foo"),
+		Private: github.Ptr(true),
 	}
 	client.Repositories.Create(ctx, "", repo)
 

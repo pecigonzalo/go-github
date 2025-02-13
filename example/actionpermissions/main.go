@@ -14,7 +14,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/google/go-github/v52/github"
+	"github.com/google/go-github/v69/github"
 )
 
 var (
@@ -35,7 +35,7 @@ func main() {
 		log.Fatal("No owner: owner of repo must be given")
 	}
 	ctx := context.Background()
-	client := github.NewTokenClient(ctx, token)
+	client := github.NewClient(nil).WithAuthToken(token)
 
 	actionsPermissionsRepository, _, err := client.Repositories.GetActionsPermissions(ctx, *owner, *name)
 	if err != nil {
@@ -44,7 +44,7 @@ func main() {
 
 	fmt.Printf("Current ActionsPermissions %s\n", actionsPermissionsRepository.String())
 
-	actionsPermissionsRepository = &github.ActionsPermissionsRepository{Enabled: github.Bool(true), AllowedActions: github.String("selected")}
+	actionsPermissionsRepository = &github.ActionsPermissionsRepository{Enabled: github.Ptr(true), AllowedActions: github.Ptr("selected")}
 	_, _, err = client.Repositories.EditActionsPermissions(ctx, *owner, *name, *actionsPermissionsRepository)
 	if err != nil {
 		log.Fatal(err)
@@ -59,7 +59,7 @@ func main() {
 
 	fmt.Printf("Current ActionsAllowed %s\n", actionsAllowed.String())
 
-	actionsAllowed = &github.ActionsAllowed{GithubOwnedAllowed: github.Bool(true), VerifiedAllowed: github.Bool(false), PatternsAllowed: []string{"a/b"}}
+	actionsAllowed = &github.ActionsAllowed{GithubOwnedAllowed: github.Ptr(true), VerifiedAllowed: github.Ptr(false), PatternsAllowed: []string{"a/b"}}
 	_, _, err = client.Repositories.EditActionsAllowed(ctx, *owner, *name, *actionsAllowed)
 	if err != nil {
 		log.Fatal(err)
@@ -67,7 +67,7 @@ func main() {
 
 	fmt.Printf("Current ActionsAllowed %s\n", actionsAllowed.String())
 
-	actionsPermissionsRepository = &github.ActionsPermissionsRepository{Enabled: github.Bool(true), AllowedActions: github.String("all")}
+	actionsPermissionsRepository = &github.ActionsPermissionsRepository{Enabled: github.Ptr(true), AllowedActions: github.Ptr("all")}
 	_, _, err = client.Repositories.EditActionsPermissions(ctx, *owner, *name, *actionsPermissionsRepository)
 	if err != nil {
 		log.Fatal(err)

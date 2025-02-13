@@ -16,8 +16,8 @@ import (
 )
 
 func TestActionsService_ListRepoVariables(t *testing.T) {
-	client, mux, _, teardown := setup()
-	defer teardown()
+	t.Parallel()
+	client, mux, _ := setup(t)
 
 	mux.HandleFunc("/repos/o/r/actions/variables", func(w http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "GET")
@@ -58,9 +58,52 @@ func TestActionsService_ListRepoVariables(t *testing.T) {
 	})
 }
 
+func TestActionsService_ListRepoOrgVariables(t *testing.T) {
+	t.Parallel()
+	client, mux, _ := setup(t)
+
+	mux.HandleFunc("/repos/o/r/actions/organization-variables", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, "GET")
+		testFormValues(t, r, values{"per_page": "2", "page": "2"})
+		fmt.Fprint(w, `{"total_count":4,"variables":[{"name":"A","value":"AA","created_at":"2019-01-02T15:04:05Z","updated_at":"2020-01-02T15:04:05Z"},{"name":"B","value":"BB","created_at":"2019-01-02T15:04:05Z","updated_at":"2020-01-02T15:04:05Z"}]}`)
+	})
+
+	opts := &ListOptions{Page: 2, PerPage: 2}
+	ctx := context.Background()
+	variables, _, err := client.Actions.ListRepoOrgVariables(ctx, "o", "r", opts)
+	if err != nil {
+		t.Errorf("Actions.ListRepoOrgVariables returned error: %v", err)
+	}
+
+	want := &ActionsVariables{
+		TotalCount: 4,
+		Variables: []*ActionsVariable{
+			{Name: "A", Value: "AA", CreatedAt: &Timestamp{time.Date(2019, time.January, 02, 15, 04, 05, 0, time.UTC)}, UpdatedAt: &Timestamp{time.Date(2020, time.January, 02, 15, 04, 05, 0, time.UTC)}},
+			{Name: "B", Value: "BB", CreatedAt: &Timestamp{time.Date(2019, time.January, 02, 15, 04, 05, 0, time.UTC)}, UpdatedAt: &Timestamp{time.Date(2020, time.January, 02, 15, 04, 05, 0, time.UTC)}},
+		},
+	}
+	if !cmp.Equal(variables, want) {
+		t.Errorf("Actions.ListRepoOrgVariables returned %+v, want %+v", variables, want)
+	}
+
+	const methodName = "ListRepoOrgVariables"
+	testBadOptions(t, methodName, func() (err error) {
+		_, _, err = client.Actions.ListRepoOrgVariables(ctx, "\n", "\n", opts)
+		return err
+	})
+
+	testNewRequestAndDoFailure(t, methodName, client, func() (*Response, error) {
+		got, resp, err := client.Actions.ListRepoOrgVariables(ctx, "o", "r", opts)
+		if got != nil {
+			t.Errorf("testNewRequestAndDoFailure %v = %#v, want nil", methodName, got)
+		}
+		return resp, err
+	})
+}
+
 func TestActionsService_GetRepoVariable(t *testing.T) {
-	client, mux, _, teardown := setup()
-	defer teardown()
+	t.Parallel()
+	client, mux, _ := setup(t)
 
 	mux.HandleFunc("/repos/o/r/actions/variables/NAME", func(w http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "GET")
@@ -99,8 +142,8 @@ func TestActionsService_GetRepoVariable(t *testing.T) {
 }
 
 func TestActionsService_CreateRepoVariable(t *testing.T) {
-	client, mux, _, teardown := setup()
-	defer teardown()
+	t.Parallel()
+	client, mux, _ := setup(t)
 
 	mux.HandleFunc("/repos/o/r/actions/variables", func(w http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "POST")
@@ -131,8 +174,8 @@ func TestActionsService_CreateRepoVariable(t *testing.T) {
 }
 
 func TestActionsService_UpdateRepoVariable(t *testing.T) {
-	client, mux, _, teardown := setup()
-	defer teardown()
+	t.Parallel()
+	client, mux, _ := setup(t)
 
 	mux.HandleFunc("/repos/o/r/actions/variables/NAME", func(w http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "PATCH")
@@ -163,8 +206,8 @@ func TestActionsService_UpdateRepoVariable(t *testing.T) {
 }
 
 func TestActionsService_DeleteRepoVariable(t *testing.T) {
-	client, mux, _, teardown := setup()
-	defer teardown()
+	t.Parallel()
+	client, mux, _ := setup(t)
 
 	mux.HandleFunc("/repos/o/r/actions/variables/NAME", func(w http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "DELETE")
@@ -188,8 +231,8 @@ func TestActionsService_DeleteRepoVariable(t *testing.T) {
 }
 
 func TestActionsService_ListOrgVariables(t *testing.T) {
-	client, mux, _, teardown := setup()
-	defer teardown()
+	t.Parallel()
+	client, mux, _ := setup(t)
 
 	mux.HandleFunc("/orgs/o/actions/variables", func(w http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "GET")
@@ -207,9 +250,9 @@ func TestActionsService_ListOrgVariables(t *testing.T) {
 	want := &ActionsVariables{
 		TotalCount: 3,
 		Variables: []*ActionsVariable{
-			{Name: "A", Value: "AA", CreatedAt: &Timestamp{time.Date(2019, time.August, 10, 14, 59, 22, 0, time.UTC)}, UpdatedAt: &Timestamp{time.Date(2020, time.January, 10, 14, 59, 22, 0, time.UTC)}, Visibility: String("private")},
-			{Name: "B", Value: "BB", CreatedAt: &Timestamp{time.Date(2019, time.August, 10, 14, 59, 22, 0, time.UTC)}, UpdatedAt: &Timestamp{time.Date(2020, time.January, 10, 14, 59, 22, 0, time.UTC)}, Visibility: String("all")},
-			{Name: "C", Value: "CC", CreatedAt: &Timestamp{time.Date(2019, time.August, 10, 14, 59, 22, 0, time.UTC)}, UpdatedAt: &Timestamp{time.Date(2020, time.January, 10, 14, 59, 22, 0, time.UTC)}, Visibility: String("selected"), SelectedRepositoriesURL: String("https://api.github.com/orgs/octo-org/actions/variables/VAR/repositories")},
+			{Name: "A", Value: "AA", CreatedAt: &Timestamp{time.Date(2019, time.August, 10, 14, 59, 22, 0, time.UTC)}, UpdatedAt: &Timestamp{time.Date(2020, time.January, 10, 14, 59, 22, 0, time.UTC)}, Visibility: Ptr("private")},
+			{Name: "B", Value: "BB", CreatedAt: &Timestamp{time.Date(2019, time.August, 10, 14, 59, 22, 0, time.UTC)}, UpdatedAt: &Timestamp{time.Date(2020, time.January, 10, 14, 59, 22, 0, time.UTC)}, Visibility: Ptr("all")},
+			{Name: "C", Value: "CC", CreatedAt: &Timestamp{time.Date(2019, time.August, 10, 14, 59, 22, 0, time.UTC)}, UpdatedAt: &Timestamp{time.Date(2020, time.January, 10, 14, 59, 22, 0, time.UTC)}, Visibility: Ptr("selected"), SelectedRepositoriesURL: Ptr("https://api.github.com/orgs/octo-org/actions/variables/VAR/repositories")},
 		},
 	}
 	if !cmp.Equal(variables, want) {
@@ -232,8 +275,8 @@ func TestActionsService_ListOrgVariables(t *testing.T) {
 }
 
 func TestActionsService_GetOrgVariable(t *testing.T) {
-	client, mux, _, teardown := setup()
-	defer teardown()
+	t.Parallel()
+	client, mux, _ := setup(t)
 
 	mux.HandleFunc("/orgs/o/actions/variables/NAME", func(w http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "GET")
@@ -251,8 +294,8 @@ func TestActionsService_GetOrgVariable(t *testing.T) {
 		Value:                   "VALUE",
 		CreatedAt:               &Timestamp{time.Date(2019, time.January, 02, 15, 04, 05, 0, time.UTC)},
 		UpdatedAt:               &Timestamp{time.Date(2020, time.January, 02, 15, 04, 05, 0, time.UTC)},
-		Visibility:              String("selected"),
-		SelectedRepositoriesURL: String("https://api.github.com/orgs/octo-org/actions/variables/VAR/repositories"),
+		Visibility:              Ptr("selected"),
+		SelectedRepositoriesURL: Ptr("https://api.github.com/orgs/octo-org/actions/variables/VAR/repositories"),
 	}
 	if !cmp.Equal(variable, want) {
 		t.Errorf("Actions.GetOrgVariable returned %+v, want %+v", variable, want)
@@ -274,8 +317,8 @@ func TestActionsService_GetOrgVariable(t *testing.T) {
 }
 
 func TestActionsService_CreateOrgVariable(t *testing.T) {
-	client, mux, _, teardown := setup()
-	defer teardown()
+	t.Parallel()
+	client, mux, _ := setup(t)
 
 	mux.HandleFunc("/orgs/o/actions/variables", func(w http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "POST")
@@ -287,7 +330,7 @@ func TestActionsService_CreateOrgVariable(t *testing.T) {
 	input := &ActionsVariable{
 		Name:                  "NAME",
 		Value:                 "VALUE",
-		Visibility:            String("selected"),
+		Visibility:            Ptr("selected"),
 		SelectedRepositoryIDs: &SelectedRepoIDs{1296269, 1269280},
 	}
 	ctx := context.Background()
@@ -308,8 +351,8 @@ func TestActionsService_CreateOrgVariable(t *testing.T) {
 }
 
 func TestActionsService_UpdateOrgVariable(t *testing.T) {
-	client, mux, _, teardown := setup()
-	defer teardown()
+	t.Parallel()
+	client, mux, _ := setup(t)
 
 	mux.HandleFunc("/orgs/o/actions/variables/NAME", func(w http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "PATCH")
@@ -321,7 +364,7 @@ func TestActionsService_UpdateOrgVariable(t *testing.T) {
 	input := &ActionsVariable{
 		Name:                  "NAME",
 		Value:                 "VALUE",
-		Visibility:            String("selected"),
+		Visibility:            Ptr("selected"),
 		SelectedRepositoryIDs: &SelectedRepoIDs{1296269, 1269280},
 	}
 	ctx := context.Background()
@@ -342,8 +385,8 @@ func TestActionsService_UpdateOrgVariable(t *testing.T) {
 }
 
 func TestActionsService_ListSelectedReposForOrgVariable(t *testing.T) {
-	client, mux, _, teardown := setup()
-	defer teardown()
+	t.Parallel()
+	client, mux, _ := setup(t)
 
 	mux.HandleFunc("/orgs/o/actions/variables/NAME/repositories", func(w http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "GET")
@@ -358,9 +401,9 @@ func TestActionsService_ListSelectedReposForOrgVariable(t *testing.T) {
 	}
 
 	want := &SelectedReposList{
-		TotalCount: Int(1),
+		TotalCount: Ptr(1),
 		Repositories: []*Repository{
-			{ID: Int64(1)},
+			{ID: Ptr(int64(1))},
 		},
 	}
 	if !cmp.Equal(repos, want) {
@@ -383,8 +426,8 @@ func TestActionsService_ListSelectedReposForOrgVariable(t *testing.T) {
 }
 
 func TestActionsService_SetSelectedReposForOrgSVariable(t *testing.T) {
-	client, mux, _, teardown := setup()
-	defer teardown()
+	t.Parallel()
+	client, mux, _ := setup(t)
 
 	mux.HandleFunc("/orgs/o/actions/variables/NAME/repositories", func(w http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "PUT")
@@ -410,14 +453,14 @@ func TestActionsService_SetSelectedReposForOrgSVariable(t *testing.T) {
 }
 
 func TestActionsService_AddSelectedRepoToOrgVariable(t *testing.T) {
-	client, mux, _, teardown := setup()
-	defer teardown()
+	t.Parallel()
+	client, mux, _ := setup(t)
 
 	mux.HandleFunc("/orgs/o/actions/variables/NAME/repositories/1234", func(w http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "PUT")
 	})
 
-	repo := &Repository{ID: Int64(1234)}
+	repo := &Repository{ID: Ptr(int64(1234))}
 	ctx := context.Background()
 	_, err := client.Actions.AddSelectedRepoToOrgVariable(ctx, "o", "NAME", repo)
 	if err != nil {
@@ -436,14 +479,14 @@ func TestActionsService_AddSelectedRepoToOrgVariable(t *testing.T) {
 }
 
 func TestActionsService_RemoveSelectedRepoFromOrgVariable(t *testing.T) {
-	client, mux, _, teardown := setup()
-	defer teardown()
+	t.Parallel()
+	client, mux, _ := setup(t)
 
 	mux.HandleFunc("/orgs/o/actions/variables/NAME/repositories/1234", func(w http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "DELETE")
 	})
 
-	repo := &Repository{ID: Int64(1234)}
+	repo := &Repository{ID: Ptr(int64(1234))}
 	ctx := context.Background()
 	_, err := client.Actions.RemoveSelectedRepoFromOrgVariable(ctx, "o", "NAME", repo)
 	if err != nil {
@@ -462,8 +505,8 @@ func TestActionsService_RemoveSelectedRepoFromOrgVariable(t *testing.T) {
 }
 
 func TestActionsService_DeleteOrgVariable(t *testing.T) {
-	client, mux, _, teardown := setup()
-	defer teardown()
+	t.Parallel()
+	client, mux, _ := setup(t)
 
 	mux.HandleFunc("/orgs/o/actions/variables/NAME", func(w http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "DELETE")
@@ -487,10 +530,10 @@ func TestActionsService_DeleteOrgVariable(t *testing.T) {
 }
 
 func TestActionsService_ListEnvVariables(t *testing.T) {
-	client, mux, _, teardown := setup()
-	defer teardown()
+	t.Parallel()
+	client, mux, _ := setup(t)
 
-	mux.HandleFunc("/repositories/1/environments/e/variables", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/repos/usr/1/environments/e/variables", func(w http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "GET")
 		testFormValues(t, r, values{"per_page": "2", "page": "2"})
 		fmt.Fprint(w, `{"total_count":4,"variables":[{"name":"A","value":"AA","created_at":"2019-01-02T15:04:05Z","updated_at":"2020-01-02T15:04:05Z"},{"name":"B","value":"BB","created_at":"2019-01-02T15:04:05Z","updated_at":"2020-01-02T15:04:05Z"}]}`)
@@ -498,7 +541,7 @@ func TestActionsService_ListEnvVariables(t *testing.T) {
 
 	opts := &ListOptions{Page: 2, PerPage: 2}
 	ctx := context.Background()
-	variables, _, err := client.Actions.ListEnvVariables(ctx, 1, "e", opts)
+	variables, _, err := client.Actions.ListEnvVariables(ctx, "usr", "1", "e", opts)
 	if err != nil {
 		t.Errorf("Actions.ListEnvVariables returned error: %v", err)
 	}
@@ -516,12 +559,12 @@ func TestActionsService_ListEnvVariables(t *testing.T) {
 
 	const methodName = "ListEnvVariables"
 	testBadOptions(t, methodName, func() (err error) {
-		_, _, err = client.Actions.ListEnvVariables(ctx, 0.0, "\n", opts)
+		_, _, err = client.Actions.ListEnvVariables(ctx, "usr", "0", "\n", opts)
 		return err
 	})
 
 	testNewRequestAndDoFailure(t, methodName, client, func() (*Response, error) {
-		got, resp, err := client.Actions.ListEnvVariables(ctx, 1, "e", opts)
+		got, resp, err := client.Actions.ListEnvVariables(ctx, "usr", "1", "e", opts)
 		if got != nil {
 			t.Errorf("testNewRequestAndDoFailure %v = %#v, want nil", methodName, got)
 		}
@@ -530,16 +573,16 @@ func TestActionsService_ListEnvVariables(t *testing.T) {
 }
 
 func TestActionsService_GetEnvVariable(t *testing.T) {
-	client, mux, _, teardown := setup()
-	defer teardown()
+	t.Parallel()
+	client, mux, _ := setup(t)
 
-	mux.HandleFunc("/repositories/1/environments/e/variables/variable", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/repos/usr/1/environments/e/variables/variable", func(w http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "GET")
 		fmt.Fprint(w, `{"name":"variable","value":"VAR","created_at":"2019-01-02T15:04:05Z","updated_at":"2020-01-02T15:04:05Z"}`)
 	})
 
 	ctx := context.Background()
-	variable, _, err := client.Actions.GetEnvVariable(ctx, 1, "e", "variable")
+	variable, _, err := client.Actions.GetEnvVariable(ctx, "usr", "1", "e", "variable")
 	if err != nil {
 		t.Errorf("Actions.GetEnvVariable returned error: %v", err)
 	}
@@ -556,12 +599,12 @@ func TestActionsService_GetEnvVariable(t *testing.T) {
 
 	const methodName = "GetEnvVariable"
 	testBadOptions(t, methodName, func() (err error) {
-		_, _, err = client.Actions.GetEnvVariable(ctx, 0.0, "\n", "\n")
+		_, _, err = client.Actions.GetEnvVariable(ctx, "usr", "0", "\n", "\n")
 		return err
 	})
 
 	testNewRequestAndDoFailure(t, methodName, client, func() (*Response, error) {
-		got, resp, err := client.Actions.GetEnvVariable(ctx, 1, "e", "variable")
+		got, resp, err := client.Actions.GetEnvVariable(ctx, "usr", "1", "e", "variable")
 		if got != nil {
 			t.Errorf("testNewRequestAndDoFailure %v = %#v, want nil", methodName, got)
 		}
@@ -570,10 +613,10 @@ func TestActionsService_GetEnvVariable(t *testing.T) {
 }
 
 func TestActionsService_CreateEnvVariable(t *testing.T) {
-	client, mux, _, teardown := setup()
-	defer teardown()
+	t.Parallel()
+	client, mux, _ := setup(t)
 
-	mux.HandleFunc("/repositories/1/environments/e/variables", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/repos/usr/1/environments/e/variables", func(w http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "POST")
 		testHeader(t, r, "Content-Type", "application/json")
 		testBody(t, r, `{"name":"variable","value":"VAR"}`+"\n")
@@ -585,27 +628,27 @@ func TestActionsService_CreateEnvVariable(t *testing.T) {
 		Value: "VAR",
 	}
 	ctx := context.Background()
-	_, err := client.Actions.CreateEnvVariable(ctx, 1, "e", input)
+	_, err := client.Actions.CreateEnvVariable(ctx, "usr", "1", "e", input)
 	if err != nil {
 		t.Errorf("Actions.CreateEnvVariable returned error: %v", err)
 	}
 
 	const methodName = "CreateEnvVariable"
 	testBadOptions(t, methodName, func() (err error) {
-		_, err = client.Actions.CreateEnvVariable(ctx, 0.0, "\n", input)
+		_, err = client.Actions.CreateEnvVariable(ctx, "usr", "0", "\n", input)
 		return err
 	})
 
 	testNewRequestAndDoFailure(t, methodName, client, func() (*Response, error) {
-		return client.Actions.CreateEnvVariable(ctx, 1, "e", input)
+		return client.Actions.CreateEnvVariable(ctx, "usr", "1", "e", input)
 	})
 }
 
 func TestActionsService_UpdateEnvVariable(t *testing.T) {
-	client, mux, _, teardown := setup()
-	defer teardown()
+	t.Parallel()
+	client, mux, _ := setup(t)
 
-	mux.HandleFunc("/repositories/1/environments/e/variables/variable", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/repos/usr/1/environments/e/variables/variable", func(w http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "PATCH")
 		testHeader(t, r, "Content-Type", "application/json")
 		testBody(t, r, `{"name":"variable","value":"VAR"}`+"\n")
@@ -617,43 +660,72 @@ func TestActionsService_UpdateEnvVariable(t *testing.T) {
 		Value: "VAR",
 	}
 	ctx := context.Background()
-	_, err := client.Actions.UpdateEnvVariable(ctx, 1, "e", input)
+	_, err := client.Actions.UpdateEnvVariable(ctx, "usr", "1", "e", input)
 	if err != nil {
 		t.Errorf("Actions.UpdateEnvVariable returned error: %v", err)
 	}
 
 	const methodName = "UpdateEnvVariable"
 	testBadOptions(t, methodName, func() (err error) {
-		_, err = client.Actions.UpdateEnvVariable(ctx, 0.0, "\n", input)
+		_, err = client.Actions.UpdateEnvVariable(ctx, "usr", "1", "\n", input)
 		return err
 	})
 
 	testNewRequestAndDoFailure(t, methodName, client, func() (*Response, error) {
-		return client.Actions.UpdateEnvVariable(ctx, 1, "e", input)
+		return client.Actions.UpdateEnvVariable(ctx, "usr", "1", "e", input)
 	})
 }
 
 func TestActionsService_DeleteEnvVariable(t *testing.T) {
-	client, mux, _, teardown := setup()
-	defer teardown()
+	t.Parallel()
+	client, mux, _ := setup(t)
 
-	mux.HandleFunc("/repositories/1/environments/e/variables/variable", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/repos/usr/1/environments/e/variables/variable", func(w http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "DELETE")
 	})
 
 	ctx := context.Background()
-	_, err := client.Actions.DeleteEnvVariable(ctx, 1, "e", "variable")
+	_, err := client.Actions.DeleteEnvVariable(ctx, "usr", "1", "e", "variable")
 	if err != nil {
 		t.Errorf("Actions.DeleteEnvVariable returned error: %v", err)
 	}
 
 	const methodName = "DeleteEnvVariable"
 	testBadOptions(t, methodName, func() (err error) {
-		_, err = client.Actions.DeleteEnvVariable(ctx, 0.0, "\n", "\n")
+		_, err = client.Actions.DeleteEnvVariable(ctx, "usr", "0", "\n", "\n")
 		return err
 	})
 
 	testNewRequestAndDoFailure(t, methodName, client, func() (*Response, error) {
-		return client.Actions.DeleteEnvVariable(ctx, 1, "r", "variable")
+		return client.Actions.DeleteEnvVariable(ctx, "usr", "1", "r", "variable")
 	})
+}
+
+func TestActionVariable_Marshal(t *testing.T) {
+	t.Parallel()
+	testJSONMarshal(t, &ActionsVariable{}, "{}")
+
+	av := &ActionsVariable{
+		Name:                    "n",
+		Value:                   "v",
+		CreatedAt:               &Timestamp{referenceTime},
+		UpdatedAt:               &Timestamp{referenceTime},
+		Visibility:              Ptr("v"),
+		SelectedRepositoriesURL: Ptr("s"),
+		SelectedRepositoryIDs:   &SelectedRepoIDs{1, 2, 3},
+	}
+
+	want := fmt.Sprintf(`{
+		"name": "n",
+		"value": "v",
+		"created_at": %s,
+		"updated_at": %s,
+		"visibility": "v",
+		"selected_repositories_url": "s",
+		"selected_repository_ids": [1,2,3]
+	}`, referenceTimeStr, referenceTimeStr)
+
+	fmt.Println(want)
+
+	testJSONMarshal(t, av, want)
 }

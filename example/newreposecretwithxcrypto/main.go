@@ -31,12 +31,13 @@ import (
 	"context"
 	crypto_rand "crypto/rand"
 	"encoding/base64"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
 	"os"
 
-	"github.com/google/go-github/v52/github"
+	"github.com/google/go-github/v69/github"
 	"golang.org/x/crypto/nacl/box"
 )
 
@@ -72,7 +73,7 @@ func main() {
 	}
 
 	ctx := context.Background()
-	client := github.NewTokenClient(ctx, token)
+	client := github.NewClient(nil).WithAuthToken(token)
 
 	if err := addRepoSecret(ctx, client, *owner, *repo, secretName, secretValue); err != nil {
 		log.Fatal(err)
@@ -84,7 +85,7 @@ func main() {
 func getSecretName() (string, error) {
 	secretName := flag.Arg(0)
 	if secretName == "" {
-		return "", fmt.Errorf("missing argument secret name")
+		return "", errors.New("missing argument secret name")
 	}
 	return secretName, nil
 }
@@ -99,7 +100,7 @@ func getSecretValue(secretName string) (string, error) {
 
 // addRepoSecret will add a secret to a GitHub repo for use in GitHub Actions.
 //
-// Finally, the secretName and secretValue will determine the name of the secret added and it's corresponding value.
+// The secretName and secretValue will determine the name of the secret added and it's corresponding value.
 //
 // The actual transmission of the secret value to GitHub using the api requires that the secret value is encrypted
 // using the public key of the target repo. This encryption is done using x/crypto/nacl/box.
@@ -115,7 +116,7 @@ func getSecretValue(secretName string) (string, error) {
 //
 // Fifth, the encrypted secret is encoded as a base64 string to be used in a github.EncodedSecret type.
 //
-// Sixt, The other two properties of the github.EncodedSecret type are determined. The name of the secret to be added
+// Sixth, The other two properties of the github.EncodedSecret type are determined. The name of the secret to be added
 // (string not base64), and the KeyID of the public key used to encrypt the secret.
 // This can be retrieved via the public key's GetKeyID method.
 //
@@ -133,7 +134,7 @@ func addRepoSecret(ctx context.Context, client *github.Client, owner string, rep
 	}
 
 	if _, err := client.Actions.CreateOrUpdateRepoSecret(ctx, owner, repo, encryptedSecret); err != nil {
-		return fmt.Errorf("Actions.CreateOrUpdateRepoSecret returned error: %v", err)
+		return fmt.Errorf("client.Actions.CreateOrUpdateRepoSecret returned error: %v", err)
 	}
 
 	return nil
@@ -147,8 +148,7 @@ func encryptSecretWithPublicKey(publicKey *github.PublicKey, secretName string, 
 
 	var boxKey [32]byte
 	copy(boxKey[:], decodedPublicKey)
-	secretBytes := []byte(secretValue)
-	encryptedBytes, err := box.SealAnonymous([]byte{}, secretBytes, &boxKey, crypto_rand.Reader)
+	encryptedBytes, err := box.SealAnonymous([]byte{}, []byte(secretValue), &boxKey, crypto_rand.Reader)
 	if err != nil {
 		return nil, fmt.Errorf("box.SealAnonymous failed with error %w", err)
 	}
