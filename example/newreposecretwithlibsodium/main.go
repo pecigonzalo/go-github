@@ -36,7 +36,7 @@ import (
 	"os"
 
 	sodium "github.com/GoKillers/libsodium-go/cryptobox"
-	"github.com/google/go-github/v52/github"
+	"github.com/google/go-github/v69/github"
 )
 
 var (
@@ -71,10 +71,7 @@ func main() {
 	}
 
 	ctx := context.Background()
-	client := github.NewTokenClient(ctx, token)
-	if err != nil {
-		log.Fatalf("unable to authorize using env GITHUB_AUTH_TOKEN: %v", err)
-	}
+	client := github.NewClient(nil).WithAuthToken(token)
 
 	if err := addRepoSecret(ctx, client, *owner, *repo, secretName, secretValue); err != nil {
 		log.Fatal(err)
@@ -133,7 +130,7 @@ func addRepoSecret(ctx context.Context, client *github.Client, owner string, rep
 	}
 
 	if _, err := client.Actions.CreateOrUpdateRepoSecret(ctx, owner, repo, encryptedSecret); err != nil {
-		return fmt.Errorf("Actions.CreateOrUpdateRepoSecret returned error: %v", err)
+		return fmt.Errorf("client.Actions.CreateOrUpdateRepoSecret returned error: %v", err)
 	}
 
 	return nil
@@ -145,8 +142,7 @@ func encryptSecretWithPublicKey(publicKey *github.PublicKey, secretName string, 
 		return nil, fmt.Errorf("base64.StdEncoding.DecodeString was unable to decode public key: %v", err)
 	}
 
-	secretBytes := []byte(secretValue)
-	encryptedBytes, exit := sodium.CryptoBoxSeal(secretBytes, decodedPublicKey)
+	encryptedBytes, exit := sodium.CryptoBoxSeal([]byte(secretValue), decodedPublicKey)
 	if exit != 0 {
 		return nil, errors.New("sodium.CryptoBoxSeal exited with non zero exit code")
 	}

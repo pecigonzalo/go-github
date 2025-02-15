@@ -16,8 +16,7 @@ import (
 	"time"
 
 	"github.com/bradleyfalzon/ghinstallation/v2"
-	"github.com/google/go-github/v52/github"
-	"golang.org/x/oauth2"
+	"github.com/google/go-github/v69/github"
 )
 
 func main() {
@@ -30,20 +29,20 @@ func main() {
 
 	itr, err := ghinstallation.NewAppsTransport(http.DefaultTransport, 10, privatePem)
 	if err != nil {
-		log.Fatalf("faild to create app transport: %v\n", err)
+		log.Fatalf("failed to create app transport: %v\n", err)
 	}
 	itr.BaseURL = gitHost
 
-	//create git client with app transport
-	client, err := github.NewEnterpriseClient(
-		gitHost,
-		gitHost,
+	// create git client with app transport
+	client, err := github.NewClient(
 		&http.Client{
 			Transport: itr,
 			Timeout:   time.Second * 30,
-		})
+		},
+	).WithEnterpriseURLs(gitHost, gitHost)
+
 	if err != nil {
-		log.Fatalf("faild to create git client for app: %v\n", err)
+		log.Fatalf("failed to create git client for app: %v\n", err)
 	}
 
 	installations, _, err := client.Apps.ListInstallations(context.Background(), &github.ListOptions{})
@@ -51,8 +50,8 @@ func main() {
 		log.Fatalf("failed to list installations: %v\n", err)
 	}
 
-	//capture our installationId for our app
-	//we need this for the access token
+	// capture our installationId for our app
+	// we need this for the access token
 	var installID int64
 	for _, val := range installations {
 		installID = val.GetID()
@@ -66,13 +65,9 @@ func main() {
 		log.Fatalf("failed to create installation token: %v\n", err)
 	}
 
-	ts := oauth2.StaticTokenSource(
-		&oauth2.Token{AccessToken: token.GetToken()},
-	)
-	oAuthClient := oauth2.NewClient(context.Background(), ts)
-
-	//create new git hub client with accessToken
-	apiClient, err := github.NewEnterpriseClient(gitHost, gitHost, oAuthClient)
+	apiClient, err := github.NewClient(nil).WithAuthToken(
+		token.GetToken(),
+	).WithEnterpriseURLs(gitHost, gitHost)
 	if err != nil {
 		log.Fatalf("failed to create new git client with token: %v\n", err)
 	}
@@ -84,7 +79,7 @@ func main() {
 		"example/foo.txt",
 		&github.RepositoryContentFileOptions{
 			Content: []byte("foo"),
-			Message: github.String("sample commit"),
+			Message: github.Ptr("sample commit"),
 			SHA:     nil,
 		})
 	if err != nil {

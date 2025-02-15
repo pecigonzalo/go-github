@@ -4,7 +4,7 @@
 // license that can be found in the LICENSE file.
 
 // Repository contents API methods.
-// GitHub API docs: https://docs.github.com/en/rest/repos/contents/
+// GitHub API docs: https://docs.github.com/rest/repos/contents/
 
 package github
 
@@ -21,6 +21,8 @@ import (
 	"strings"
 )
 
+var ErrPathForbidden = errors.New("path must not contain '..' due to auth vulnerability issue")
+
 // RepositoryContent represents a file or directory in a github repository.
 type RepositoryContent struct {
 	Type *string `json:"type,omitempty"`
@@ -34,12 +36,13 @@ type RepositoryContent struct {
 	// Content contains the actual file content, which may be encoded.
 	// Callers should call GetContent which will decode the content if
 	// necessary.
-	Content     *string `json:"content,omitempty"`
-	SHA         *string `json:"sha,omitempty"`
-	URL         *string `json:"url,omitempty"`
-	GitURL      *string `json:"git_url,omitempty"`
-	HTMLURL     *string `json:"html_url,omitempty"`
-	DownloadURL *string `json:"download_url,omitempty"`
+	Content         *string `json:"content,omitempty"`
+	SHA             *string `json:"sha,omitempty"`
+	URL             *string `json:"url,omitempty"`
+	GitURL          *string `json:"git_url,omitempty"`
+	HTMLURL         *string `json:"html_url,omitempty"`
+	DownloadURL     *string `json:"download_url,omitempty"`
+	SubmoduleGitURL *string `json:"submodule_git_url,omitempty"`
 }
 
 // RepositoryContentResponse holds the parsed response from CreateFile, UpdateFile, and DeleteFile.
@@ -59,7 +62,7 @@ type RepositoryContentFileOptions struct {
 }
 
 // RepositoryContentGetOptions represents an optional ref parameter, which can be a SHA,
-// branch, or tag
+// branch, or tag.
 type RepositoryContentGetOptions struct {
 	Ref string `url:"ref,omitempty"`
 }
@@ -88,6 +91,8 @@ func (r *RepositoryContent) GetContent() (string, error) {
 			return "", nil
 		}
 		return *r.Content, nil
+	case "none":
+		return "", errors.New("unsupported content encoding: none, this may occur when file size > 1 MB, if that is the case consider using DownloadContents")
 	default:
 		return "", fmt.Errorf("unsupported content encoding: %v", encoding)
 	}
@@ -95,7 +100,9 @@ func (r *RepositoryContent) GetContent() (string, error) {
 
 // GetReadme gets the Readme file for the repository.
 //
-// GitHub API docs: https://docs.github.com/en/rest/repos/contents#get-a-repository-readme
+// GitHub API docs: https://docs.github.com/rest/repos/contents#get-a-repository-readme
+//
+//meta:operation GET /repos/{owner}/{repo}/readme
 func (s *RepositoriesService) GetReadme(ctx context.Context, owner, repo string, opts *RepositoryContentGetOptions) (*RepositoryContent, *Response, error) {
 	u := fmt.Sprintf("repos/%v/%v/readme", owner, repo)
 	u, err := addOptions(u, opts)
@@ -125,6 +132,10 @@ func (s *RepositoriesService) GetReadme(ctx context.Context, owner, repo string,
 // It is possible for the download to result in a failed response when the
 // returned error is nil. Callers should check the returned Response status
 // code to verify the content is from a successful response.
+//
+// GitHub API docs: https://docs.github.com/rest/repos/contents#get-repository-content
+//
+//meta:operation GET /repos/{owner}/{repo}/contents/{path}
 func (s *RepositoriesService) DownloadContents(ctx context.Context, owner, repo, filepath string, opts *RepositoryContentGetOptions) (io.ReadCloser, *Response, error) {
 	dir := path.Dir(filepath)
 	filename := path.Base(filepath)
@@ -139,7 +150,11 @@ func (s *RepositoriesService) DownloadContents(ctx context.Context, owner, repo,
 				return nil, resp, fmt.Errorf("no download link found for %s", filepath)
 			}
 
-			dlResp, err := s.client.client.Get(*contents.DownloadURL)
+			dlReq, err := http.NewRequestWithContext(ctx, http.MethodGet, *contents.DownloadURL, nil)
+			if err != nil {
+				return nil, resp, err
+			}
+			dlResp, err := s.client.client.Do(dlReq)
 			if err != nil {
 				return nil, &Response{Response: dlResp}, err
 			}
@@ -159,6 +174,10 @@ func (s *RepositoriesService) DownloadContents(ctx context.Context, owner, repo,
 // It is possible for the download to result in a failed response when the
 // returned error is nil. Callers should check the returned Response status
 // code to verify the content is from a successful response.
+//
+// GitHub API docs: https://docs.github.com/rest/repos/contents#get-repository-content
+//
+//meta:operation GET /repos/{owner}/{repo}/contents/{path}
 func (s *RepositoriesService) DownloadContentsWithMeta(ctx context.Context, owner, repo, filepath string, opts *RepositoryContentGetOptions) (io.ReadCloser, *RepositoryContent, *Response, error) {
 	dir := path.Dir(filepath)
 	filename := path.Base(filepath)
@@ -173,7 +192,11 @@ func (s *RepositoriesService) DownloadContentsWithMeta(ctx context.Context, owne
 				return nil, contents, resp, fmt.Errorf("no download link found for %s", filepath)
 			}
 
-			dlResp, err := s.client.client.Get(*contents.DownloadURL)
+			dlReq, err := http.NewRequestWithContext(ctx, http.MethodGet, *contents.DownloadURL, nil)
+			if err != nil {
+				return nil, contents, resp, err
+			}
+			dlResp, err := s.client.client.Do(dlReq)
 			if err != nil {
 				return nil, contents, &Response{Response: dlResp}, err
 			}
@@ -192,8 +215,17 @@ func (s *RepositoriesService) DownloadContentsWithMeta(ctx context.Context, owne
 // as possible, both result types will be returned but only one will contain a
 // value and the other will be nil.
 //
-// GitHub API docs: https://docs.github.com/en/rest/repos/contents#get-repository-content
+// Due to an auth vulnerability issue in the GitHub v3 API, ".." is not allowed
+// to appear anywhere in the "path" or this method will return an error.
+//
+// GitHub API docs: https://docs.github.com/rest/repos/contents#get-repository-content
+//
+//meta:operation GET /repos/{owner}/{repo}/contents/{path}
 func (s *RepositoriesService) GetContents(ctx context.Context, owner, repo, path string, opts *RepositoryContentGetOptions) (fileContent *RepositoryContent, directoryContent []*RepositoryContent, resp *Response, err error) {
+	if strings.Contains(path, "..") {
+		return nil, nil, nil, ErrPathForbidden
+	}
+
 	escapedPath := (&url.URL{Path: strings.TrimSuffix(path, "/")}).String()
 	u := fmt.Sprintf("repos/%s/%s/contents/%s", owner, repo, escapedPath)
 	u, err = addOptions(u, opts)
@@ -222,13 +254,15 @@ func (s *RepositoriesService) GetContents(ctx context.Context, owner, repo, path
 		return nil, directoryContent, resp, nil
 	}
 
-	return nil, nil, resp, fmt.Errorf("unmarshalling failed for both file and directory content: %s and %s", fileUnmarshalError, directoryUnmarshalError)
+	return nil, nil, resp, fmt.Errorf("unmarshaling failed for both file and directory content: %s and %s", fileUnmarshalError, directoryUnmarshalError)
 }
 
 // CreateFile creates a new file in a repository at the given path and returns
 // the commit and file metadata.
 //
-// GitHub API docs: https://docs.github.com/en/rest/repos/contents#create-or-update-file-contents
+// GitHub API docs: https://docs.github.com/rest/repos/contents#create-or-update-file-contents
+//
+//meta:operation PUT /repos/{owner}/{repo}/contents/{path}
 func (s *RepositoriesService) CreateFile(ctx context.Context, owner, repo, path string, opts *RepositoryContentFileOptions) (*RepositoryContentResponse, *Response, error) {
 	u := fmt.Sprintf("repos/%s/%s/contents/%s", owner, repo, path)
 	req, err := s.client.NewRequest("PUT", u, opts)
@@ -248,7 +282,9 @@ func (s *RepositoriesService) CreateFile(ctx context.Context, owner, repo, path 
 // UpdateFile updates a file in a repository at the given path and returns the
 // commit and file metadata. Requires the blob SHA of the file being updated.
 //
-// GitHub API docs: https://docs.github.com/en/rest/repos/contents#create-or-update-file-contents
+// GitHub API docs: https://docs.github.com/rest/repos/contents#create-or-update-file-contents
+//
+//meta:operation PUT /repos/{owner}/{repo}/contents/{path}
 func (s *RepositoriesService) UpdateFile(ctx context.Context, owner, repo, path string, opts *RepositoryContentFileOptions) (*RepositoryContentResponse, *Response, error) {
 	u := fmt.Sprintf("repos/%s/%s/contents/%s", owner, repo, path)
 	req, err := s.client.NewRequest("PUT", u, opts)
@@ -268,7 +304,9 @@ func (s *RepositoriesService) UpdateFile(ctx context.Context, owner, repo, path 
 // DeleteFile deletes a file from a repository and returns the commit.
 // Requires the blob SHA of the file to be deleted.
 //
-// GitHub API docs: https://docs.github.com/en/rest/repos/contents#delete-a-file
+// GitHub API docs: https://docs.github.com/rest/repos/contents#delete-a-file
+//
+//meta:operation DELETE /repos/{owner}/{repo}/contents/{path}
 func (s *RepositoriesService) DeleteFile(ctx context.Context, owner, repo, path string, opts *RepositoryContentFileOptions) (*RepositoryContentResponse, *Response, error) {
 	u := fmt.Sprintf("repos/%s/%s/contents/%s", owner, repo, path)
 	req, err := s.client.NewRequest("DELETE", u, opts)
@@ -300,20 +338,33 @@ const (
 // repository. The archiveFormat can be specified by either the github.Tarball
 // or github.Zipball constant.
 //
-// GitHub API docs: https://docs.github.com/en/rest/repos/contents/#get-archive-link
-func (s *RepositoriesService) GetArchiveLink(ctx context.Context, owner, repo string, archiveformat ArchiveFormat, opts *RepositoryContentGetOptions, followRedirects bool) (*url.URL, *Response, error) {
+// GitHub API docs: https://docs.github.com/rest/repos/contents#download-a-repository-archive-tar
+// GitHub API docs: https://docs.github.com/rest/repos/contents#download-a-repository-archive-zip
+//
+//meta:operation GET /repos/{owner}/{repo}/tarball/{ref}
+//meta:operation GET /repos/{owner}/{repo}/zipball/{ref}
+func (s *RepositoriesService) GetArchiveLink(ctx context.Context, owner, repo string, archiveformat ArchiveFormat, opts *RepositoryContentGetOptions, maxRedirects int) (*url.URL, *Response, error) {
 	u := fmt.Sprintf("repos/%s/%s/%s", owner, repo, archiveformat)
 	if opts != nil && opts.Ref != "" {
 		u += fmt.Sprintf("/%s", opts.Ref)
 	}
-	resp, err := s.client.roundTripWithOptionalFollowRedirect(ctx, u, followRedirects)
+
+	if s.client.RateLimitRedirectionalEndpoints {
+		return s.getArchiveLinkWithRateLimit(ctx, u, maxRedirects)
+	}
+
+	return s.getArchiveLinkWithoutRateLimit(ctx, u, maxRedirects)
+}
+
+func (s *RepositoriesService) getArchiveLinkWithoutRateLimit(ctx context.Context, u string, maxRedirects int) (*url.URL, *Response, error) {
+	resp, err := s.client.roundTripWithOptionalFollowRedirect(ctx, u, maxRedirects)
 	if err != nil {
 		return nil, nil, err
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusFound {
-		return nil, newResponse(resp), fmt.Errorf("unexpected status code: %s", resp.Status)
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusFound {
+		return nil, newResponse(resp), fmt.Errorf("unexpected status code: %v", resp.Status)
 	}
 
 	parsedURL, err := url.Parse(resp.Header.Get("Location"))
@@ -322,4 +373,24 @@ func (s *RepositoriesService) GetArchiveLink(ctx context.Context, owner, repo st
 	}
 
 	return parsedURL, newResponse(resp), nil
+}
+
+func (s *RepositoriesService) getArchiveLinkWithRateLimit(ctx context.Context, u string, maxRedirects int) (*url.URL, *Response, error) {
+	req, err := s.client.NewRequest("GET", u, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	url, resp, err := s.client.bareDoUntilFound(ctx, req, maxRedirects)
+	if err != nil {
+		return nil, resp, err
+	}
+	defer resp.Body.Close()
+
+	// If we didn't receive a valid Location in a 302 response
+	if url == nil {
+		return nil, resp, fmt.Errorf("unexpected status code: %v", resp.Status)
+	}
+
+	return url, resp, nil
 }

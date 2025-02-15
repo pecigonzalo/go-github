@@ -12,7 +12,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/google/go-github/v52/github"
+	"github.com/google/go-github/v69/github"
 )
 
 // Fetch all the public organizations' membership of a user.

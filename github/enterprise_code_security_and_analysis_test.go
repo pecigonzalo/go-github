@@ -16,8 +16,8 @@ import (
 )
 
 func TestEnterpriseService_GetCodeSecurityAndAnalysis(t *testing.T) {
-	client, mux, _, teardown := setup()
-	defer teardown()
+	t.Parallel()
+	client, mux, _ := setup(t)
 
 	mux.HandleFunc("/enterprises/e/code_security_and_analysis", func(w http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "GET")
@@ -27,7 +27,8 @@ func TestEnterpriseService_GetCodeSecurityAndAnalysis(t *testing.T) {
 		  "advanced_security_enabled_for_new_repositories": true,
 		  "secret_scanning_enabled_for_new_repositories": true,
 		  "secret_scanning_push_protection_enabled_for_new_repositories": true,
-		  "secret_scanning_push_protection_custom_link": "https://github.com/test-org/test-repo/blob/main/README.md"
+		  "secret_scanning_push_protection_custom_link": "https://github.com/test-org/test-repo/blob/main/README.md",
+		  "secret_scanning_validity_checks_enabled": true
 		}`)
 	})
 
@@ -40,10 +41,11 @@ func TestEnterpriseService_GetCodeSecurityAndAnalysis(t *testing.T) {
 		t.Errorf("Enterprise.%v returned error: %v", methodName, err)
 	}
 	want := &EnterpriseSecurityAnalysisSettings{
-		AdvancedSecurityEnabledForNewRepositories:             Bool(true),
-		SecretScanningEnabledForNewRepositories:               Bool(true),
-		SecretScanningPushProtectionEnabledForNewRepositories: Bool(true),
-		SecretScanningPushProtectionCustomLink:                String("https://github.com/test-org/test-repo/blob/main/README.md"),
+		AdvancedSecurityEnabledForNewRepositories:             Ptr(true),
+		SecretScanningEnabledForNewRepositories:               Ptr(true),
+		SecretScanningPushProtectionEnabledForNewRepositories: Ptr(true),
+		SecretScanningPushProtectionCustomLink:                Ptr("https://github.com/test-org/test-repo/blob/main/README.md"),
+		SecretScanningValidityChecksEnabled:                   Ptr(true),
 	}
 
 	if !cmp.Equal(settings, want) {
@@ -65,19 +67,20 @@ func TestEnterpriseService_GetCodeSecurityAndAnalysis(t *testing.T) {
 }
 
 func TestEnterpriseService_UpdateCodeSecurityAndAnalysis(t *testing.T) {
-	client, mux, _, teardown := setup()
-	defer teardown()
+	t.Parallel()
+	client, mux, _ := setup(t)
 
 	input := &EnterpriseSecurityAnalysisSettings{
-		AdvancedSecurityEnabledForNewRepositories:             Bool(true),
-		SecretScanningEnabledForNewRepositories:               Bool(true),
-		SecretScanningPushProtectionEnabledForNewRepositories: Bool(true),
-		SecretScanningPushProtectionCustomLink:                String("https://github.com/test-org/test-repo/blob/main/README.md"),
+		AdvancedSecurityEnabledForNewRepositories:             Ptr(true),
+		SecretScanningEnabledForNewRepositories:               Ptr(true),
+		SecretScanningPushProtectionEnabledForNewRepositories: Ptr(true),
+		SecretScanningPushProtectionCustomLink:                Ptr("https://github.com/test-org/test-repo/blob/main/README.md"),
+		SecretScanningValidityChecksEnabled:                   Ptr(true),
 	}
 
 	mux.HandleFunc("/enterprises/e/code_security_and_analysis", func(w http.ResponseWriter, r *http.Request) {
 		v := new(EnterpriseSecurityAnalysisSettings)
-		json.NewDecoder(r.Body).Decode(v)
+		assertNilError(t, json.NewDecoder(r.Body).Decode(v))
 
 		testMethod(t, r, "PATCH")
 		if !cmp.Equal(v, input) {
@@ -105,8 +108,8 @@ func TestEnterpriseService_UpdateCodeSecurityAndAnalysis(t *testing.T) {
 }
 
 func TestEnterpriseService_EnableAdvancedSecurity(t *testing.T) {
-	client, mux, _, teardown := setup()
-	defer teardown()
+	t.Parallel()
+	client, mux, _ := setup(t)
 
 	mux.HandleFunc("/enterprises/e/advanced_security/enable_all", func(w http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "POST")
